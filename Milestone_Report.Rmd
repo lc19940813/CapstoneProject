@@ -1,0 +1,243 @@
+---
+title: "Milestone Report"
+author: "Chao Liu"
+date: "06/2016"
+output: html_document
+---
+
+## Overview
+This report contains basic summary information about the data collected by SwiftKey and Coursera. In the following sections, we will see the most popular words in three datasets and we will draw a nice wordcloud to visualize it. Moreover, we will also see the distribution and how many words are enough to cover 90% content of these three materials.
+
+```{r, echo = FALSE, results='hide'}
+library(tm)
+library(dplyr)
+library(SnowballC)
+library(wordcloud)
+library(ngram)
+```
+  
+## Getting Data
+  
+The following function takes a small part of the original data out as our training dataset
+```{r}
+writeTestDocument <- function(twitter_lines, blogs_lines, news_lines){
+    twitter <- character()
+    con <- file("F://Data Science//Capstone//Coursera-SwiftKey//final//en_US//en_US.twitter.txt","r")
+    twitter <- append(twitter, readLines(con, twitter_lines))
+    write.table(twitter, file = "F://Data Science//Capstone//Coursera-SwiftKey//test//test_twitter.txt")
+    close(con)
+    
+    blogs <- character()
+    con <- file("F://Data Science//Capstone//Coursera-SwiftKey//final//en_US//en_US.blogs.txt","r")
+    blogs <- append(blogs, readLines(con, blogs_lines))
+    write.table(blogs, file = "F://Data Science//Capstone//Coursera-SwiftKey//test//test_blogs.txt")
+    close(con)
+    
+    news <- character()
+    con <- file("F://Data Science//Capstone//Coursera-SwiftKey//final//en_US//en_US.news.txt","r")
+    news <- append(news, readLines(con, news_lines))
+    write.table(news, file = "F://Data Science//Capstone//Coursera-SwiftKey//test//test_news.txt")
+    close(con)
+    
+    rm(con);
+    rm(twitter);rm(blogs);rm(news);
+}
+```
+
+Noticing the total lines can be evaluated as follows (we will only use the en_US data):
+```{r, eval = FALSE}
+twitter <- character()
+con <- file("F://Data Science//Capstone//Coursera-SwiftKey//final//en_US//en_US.twitter.txt","r")
+while (length(readLines(con, 1)) != 0) {
+    twitter <- append(twitter, readLines(con, 1000))
+}
+close(con)
+twitter<-iconv(enc2utf8(twitter),sub="byte")
+blogs <- character()
+con <- file("F://Data Science//Capstone//Coursera-SwiftKey//final//en_US//en_US.blogs.txt","r")
+while (length(readLines(con, 1)) != 0) {
+    blogs <- append(blogs, readLines(con, 1000))
+}
+close(con)
+blogs<-iconv(enc2utf8(blogs),sub="byte")
+news <- character()
+con <- file("F://Data Science//Capstone//Coursera-SwiftKey//final//en_US//en_US.news.txt","r")
+while (length(readLines(con, 1)) != 0) {
+    news <- append(news, readLines(con, 1000))
+}
+close(con)
+news<-iconv(enc2utf8(news),sub="byte")
+```
+  
+We will first take 30000 lines, 10000 lines and 10000 lines of twiiter, blogs and news data. 
+```{r,eval = FALSE}
+writeTestDocument(30000,10000,10000)
+```
+  
+Finally, we will read the data as VCorpus provided by tm package:
+
+```{r}
+rctol <- list(reader = readPlain, language = "en", load = TRUE)
+dat <- VCorpus(x = DirSource("F://Data Science//Capstone//Coursera-SwiftKey//test"), readerControl = rctol)
+rm(rctol)
+```
+  
+## Cleaning Data
+
+### Profane filtering
+
+Profane words are hard to define since some potential profane word needs to be carefully evaluated as profane under certain circumstances according to different culture.  
+
+Hence, we will only exclude profane words according to Seven dirty words from Wikipedia, which is defined as profane word under almost every circumstances.
+
+```{r}
+profane_word <- c("shit","piss","fuck","cunt","cocksucker","motherfucker","tits")
+```
+
+### Text Stemming, Tokenization & Punctuation and Number Removal  
+We will transfer the raw data into Corpus that we can implement data analysis on. Hence, we will utilize the tm package to stem, tokenize the raw input, and then remove punctuation and numbers since we mainly focus on word prediction.
+
+```{r}
+dat <- tm_map(dat, removeNumbers)
+dat <- tm_map(dat, content_transformer(tolower))
+dat <- tm_map(dat, removeWords, stopwords("english"))
+dat <- tm_map(dat, stripWhitespace)
+dat <- tm_map(dat, removePunctuation)
+dat <- tm_map(dat, stemDocument)
+dat <- tm_map(dat, removeWords, stopwords("english"))
+dat <- tm_map(dat, removeWords, profane_word) # Profane filtering
+```
+   
+### Basic summary statistics
+
+1. Using the stemmed document to calculate the Term-Document-Matrix, which will be the core to our data analysis
+```{r}
+my_TDM <- TermDocumentMatrix(dat)
+```
+  
+2. Tranforming the TDM into new matrix for further analysis
+```{r}
+test <- as.matrix(my_TDM)
+test <- list(test, name  = rownames(test))
+test <- tbl_df(as.data.frame(test))
+test <- mutate(test, freq = test_blogs.txt + test_news.txt + test_twitter.txt)
+test <- arrange(test, desc(freq)) #Rank the words by frequency
+test$name <- as.character(test$name)
+```
+  
+Let's see the most 20 frequent words in our training dataset
+```{r,echo = FALSE}
+head(test, 20)
+```
+  
+3. Words that can cover 90% content of the Corpus  
+
+The following functions can get the nearest number of the words that are able to constitute a dictionary to cover the corpus with the given coverage ratio
+```{r}
+nearest_to_target <- function(freq, target){
+    which.min(abs(freq-target))
+}
+cover_ratio <- function(freq,ratio){
+    freq <- sort(freq, decreasing = TRUE)
+    temp <- numeric()
+    for(i in 1: length(freq)){
+        temp[i] <- sum(freq[1:i])/sum(freq)
+    }
+    nearest_to_target(temp,ratio)
+}
+```
+
+We will eliminate the words that only constitute 10% of all the content of the training corpus to see how many words are left to reduce the dimension.
+```{r}
+uncommon_words <- as.character(test$name[cover_ratio(test$freq,0.9):dim(test)[1]])
+```
+So the result indicates that only **`r (nrow(test)-length(uncommon_words)) / nrow(test) * 100`** percent of words can be used to represent the corpus itself! 
+
+Reload the reduced data matrix
+```{r}
+test <- test[1:cover_ratio(test$freq,0.9),]
+```
+
+4. Implement simple explantory data analysis
+* Find associates  
+For example, we can find the words that has high correlation with the word "love"
+```{r}
+findAssocs(my_TDM, "love", 0.9999) # Find associates with "love"
+```
+  
+* Word clustering
+```{r,echo = FALSE}
+hclusting <- hclust(dist(test), method = "ward")
+plot(hclusting)
+rm(hclusting)
+```
+  
+From the dendrogram above, we can roughly see the words can be split as two parts
+
+* Wordcloud picture
+```{r,echo = FALSE}
+pal <- brewer.pal(5,"Dark2")
+```
+We will draw some nice wordcloud pictures to visualize the most frequent words in twitter, blogs and news dataset  
+1. Overall Wordcloud  
+    ```{r,echo = FALSE}
+wordcloud(words = test$name, freq = test$freq, min.freq = test$freq[30], colors = pal)
+    ```
+  
+2. Twitter Wordcloud  
+    ```{r,echo = FALSE}
+wordcloud(words = test$name, freq = test$test_blogs.txt, min.freq = sort(test$test_blogs.txt,decreasing = T)[30],colors = pal)
+    ```
+  
+3. Blogs Wordcloud  
+    ```{r,echo = FALSE}
+wordcloud(words = test$name, freq = test$test_news.txt, min.freq = sort(test$test_news.txt,decreasing = T)[30], colors = pal)
+    ```
+  
+4. News Wordcloud  
+    ```{r,echo = FALSE}
+wordcloud(words = test$name, freq = test$test_twitter.txt, min.freq = sort(test$test_twitter.txt,decreasing = T)[30], colors = pal)
+    ```
+    
+Consequently, from the above wordclouds, we can see the distribution of different dataset.
+
+* Histograms of frequency of words  
+We can draw the histogram of frequencies of words of the reduced overall dataset:
+
+```{r, echo = FALSE}
+hist(test$freq, col = "lightgrey",freq = FALSE, main = "The distribution of words",
+     xlab = "# of Words", ylab = "Frequency")
+lines(density(test$freq), col = "red")
+```
+
+As we expected, words are distributed as power distribution.
+
+* Dissimilarity by cosine relationship
+We want to know the relation bewteen twitter, blogs and news data. Here, we will exploit the cosine relationship to measure the correlation:  
+```{r}
+dissimilarity <- function(x, y){
+    sum(x*y)/(sqrt(sum(x^2))*sqrt(sum(y^2)))
+}
+correlation_matrix <- matrix(data = 0, nrow = 3, ncol = 3)
+for(i in 1:3){
+    for(j in 1:3){
+        correlation_matrix[i,j] <- dissimilarity(test[,i],test[,j])
+    }
+}
+rownames(correlation_matrix) <- names(test)[1:3]; colnames(correlation_matrix) <- names(test)[1:3]
+correlation_matrix 
+```  
+  
+We can see from the table the datasets are actually highly correlated
+
+* Bigram exploration
+For the further predictive model, we will first find the bigram pattern of our training data as follows:
+```{r}
+ng <- ngram(concatenate(content(dat[[1]]),content(dat[[2]]),content(dat[[3]])), n = 2)
+wordtable <- get.phrasetable(ng)
+```
+  
+Ultimately, the 20 most common bigrams are:
+```{r,echo = FALSE}
+head(wordtable,20)[,-3]
+```

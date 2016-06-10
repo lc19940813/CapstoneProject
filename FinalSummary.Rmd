@@ -1,0 +1,36 @@
+---
+title: "Summary of Final Project for Capstone of Data Science Specialization of Coursera"
+author: "Chao Liu"
+date: "06/2016"
+output: html_document
+---
+
+## Overview
+In this Rmarkdown file, we will briefly summary all the work that has been done in this capstone project.
+
+## Getting and Cleaning the Data  
+1. First, I simply downloaded the SwiftKey zip file from the website. After unzipping it, I read the lines and using regular expression to explore the dataset.   
+
+2. After that, with the assistance of `tm` package, I did the profane filtering, stemming, tokenization and noise removal.
+
+## Explantoary analysis
+Since I have a relative cleaned data, in the process of playing of the data, I did the following explantoary data ananlysis:
+
+* Draw Wordclouds: We can visualize the most frequent words for further purpose.
+* Histogram and Density of Word Freq: We can notice that the density of freq follows the power distribution so only a small part of the words can cover majority of contents of corpus.
+* Word Clustering: We can see the natural classification of words
+* Dissimilarity of Text: Define the cosine relationship of test to see the correlation of texts
+
+## Developping Data Product
+After establishing the prediction model, I eventually made a ShinyApp and wrote a slide deck in R presentator to describe my algorithm and instruction about the App.
+
+## More Machine Learning (To be continued)
+In backoff models, we can find the optimal parameters according to the perplexity of training set and validation set. What's more, we should also do cross-validation to reduce the out of sample error. 
+
+## More interesting topic (Statistical Inference, Regression Model)
+1. How to use analogy and contradiction relationship to help us improve the efficiency of our prediction model?
+2. In different resampling sample, whether the freq of a certain word is higher than another word?
+3. Is there a effective data structure in R can effectively store the ngrams data?
+
+## Acknowledgement
+I want to thank the Data Science Specialization Team of Coursera, SwiftKey, our instructors, and all the nice classmates. It's my honor to have this wonderful oppoturnity to learn data science. I believe this is only the first step for me to become a data scientist. I hope this dream will achieve in the future. Thanks agin, friends!
